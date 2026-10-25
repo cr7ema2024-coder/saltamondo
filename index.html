@@ -234,7 +234,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .scrhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 16px; }
 .worlds { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .world h3 { margin: 0 0 4px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.lvgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.lvgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-radius: 8px; cursor: pointer; }
+.swatch.auto { width: auto; border-radius: 15px; padding: 0 10px; font-size: 12px; }
+.story-text { text-align: left; max-width: 62ch; display: flex; flex-direction: column; gap: 4px; }
+.story-text h3 { margin: 6px 0 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.story-text p { margin: 0; color: var(--ink); }
+.toast { position: absolute; top: 14%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 86%; padding: 8px 14px; border-radius: 10px; background: rgba(20, 16, 40, 0.88); color: #ffffff; font-weight: 600; text-align: center; pointer-events: none; }
+.game:not(.can-dash) #tDash { display: none !important; }
 .lv { display: flex; flex-direction: column; align-items: center; padding: 4px; min-width: 0; }
 .lv b { font-size: clamp(14px, 2.3vw, 19px); line-height: 1.2; }
 .lv .st { font-size: 12px; letter-spacing: 1px; color: #e0a800; }
@@ -308,6 +315,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
           <button type="button" class="primary" id="btnPlay" data-primary>Gioca</button>
           <button type="button" id="btnTutorial">Tutorial</button>
           <button type="button" id="btnHero">Personaggio</button>
+          <button type="button" id="btnStory">Storia</button>
         </div>
         <div class="row">
           <button type="button" class="small" id="btnAccount">Account</button>
@@ -328,13 +336,20 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
             <div class="row seg" role="radiogroup" aria-label="Personaggio" id="bodySeg"></div>
             <span class="lbl">Colore</span>
             <div class="row seg" role="radiogroup" aria-label="Colore" id="colorSeg"></div>
+            <span class="lbl">Colore dei dettagli</span>
+            <div class="row seg" role="radiogroup" aria-label="Colore dei dettagli" id="color2Seg"></div>
             <span class="lbl">Cappello</span>
             <div class="row seg" role="radiogroup" aria-label="Cappello" id="hatSeg"></div>
+            <div class="row seg" role="radiogroup" aria-label="Colore del cappello" id="hatColorSeg"></div>
+            <span class="lbl">Accessorio</span>
+            <div class="row seg" role="radiogroup" aria-label="Accessorio" id="accSeg"></div>
+            <div class="row seg" role="radiogroup" aria-label="Colore dell'accessorio" id="accColorSeg"></div>
           </div>
         </div>
         <p class="note" id="heroNote"></p>
         <div class="row">
           <button type="button" class="primary" id="btnHeroSave" data-primary>Salva</button>
+          <button type="button" id="btnHeroRandom">Casuale</button>
           <button type="button" id="btnHeroCancel">Annulla</button>
         </div>
       </section>
@@ -352,7 +367,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
           <button type="button" class="primary" id="btnResume" data-primary>Riprendi</button>
           <button type="button" id="btnRetry">Ricomincia il livello</button>
           <button type="button" id="btnPauseLevels">Livelli</button>
+          <button type="button" id="btnSkip" hidden>Salta livello (admin)</button>
         </div>
+        <p class="note" id="pauseInfo"></p>
+      </section>
+
+      <section class="scr" id="scrStory" hidden>
+        <h2>La storia</h2>
+        <div class="story-text" id="storyText"></div>
+        <div class="row"><button type="button" class="primary" id="btnStoryBack" data-primary>Indietro</button></div>
       </section>
 
       <section class="scr" id="scrDone" hidden>
@@ -360,6 +383,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
         <div class="big-stars" id="doneBig" aria-hidden="true"></div>
         <ul class="starlist" id="doneStars"></ul>
         <p class="hello" id="doneCoins"></p>
+        <p class="hello" id="doneAbility" hidden></p>
         <div class="row">
           <button type="button" class="primary" id="btnNext" data-primary>Livello successivo</button>
           <button type="button" id="btnRetry2">Rigioca</button>
@@ -382,11 +406,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       <button type="button" id="tRight" data-k="right">&#9654;</button>
     </div>
     <div class="grp">
+      <button type="button" id="tDash" data-k="dash">&#187;</button>
       <button type="button" id="tDown" data-k="down">&#9660;</button>
       <button type="button" id="tJump" class="big" data-k="jump">&#9650;</button>
     </div>
   </div>
   <p class="rotate">Gira il telefono in orizzontale per giocare più comodo.</p>
+  <div class="toast" id="toast" role="status" hidden></div>
   </div>
 </main>
 
@@ -397,7 +423,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   // ================= costanti =================
   const T = 16, VW = 480, VH = 272, ROWS = 17;
   const GRAV = 1300, RUN = 140, JUMP = 430, DJUMP = 380, SPRING = 700, MAXFALL = 480, STOMP = 340, PGRAV = 900;
-  const COST = 500, STAND_H = 15, CROUCH_H = 8, SLIDE_V = 240;
+  const COST = 500, STAND_H = 15, CROUCH_H = 8, SLIDE_V = 240, DASH_V = 320;
+  const LPW = 6, TOTAL = 18;   // livelli per mondo e livelli per modalita'
+  const WALL_SLIDE = 80, POUND_V = 700;
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const cv = document.getElementById('game');
   const mainCtx = cv.getContext('2d');
@@ -461,13 +489,44 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     robot: { label: 'Robot', hat: [2, 2], pal: { a: '#ff5a5a', g: '#8a93a8', w: '#cfe8ff', k: K, y: '#ffd23f' }, map: [
       '.....a......', '.....g......', '..gggggggg..', '..gwwwwwwg..', '..gwkwwkwg..', '..gwwwwwwg..', '..gggggggg..', '....gggg....', '..mmmmmmmm..', '.gmmyyyymmg.', '.gmmmmmmmmg.', '..mmmmmmmm..', '...gg..gg...', '...gg..gg...', '..ggg..ggg..'] },
     drago: { label: 'Draghetto', hat: [4, 0], pal: { a: '#ffd23f', b: '#fff0b0', k: K, w: '#ffffff' }, map: [
-      '.....mmmm...', '....mmmmmm..', '....mmmkmmm.', '....mmmmmmmm', '....mmmmwwww', '....mmmmm...', '..a.mmmmm...', '.amm.bbbmm..', 'amm..bbbbm..', 'mmm..bbbbm..', '.mmmmmbbmm..', '..mmmmmmmm..', '...mm...mm..', '...mm...mm..', '..mmm..mmm..'] }
+      '.....mmmm...', '....mmmmmm..', '....mmmkmmm.', '....mmmmmmmm', '....mmmmwwww', '....mmmmm...', '..a.mmmmm...', '.amm.bbbmm..', 'amm..bbbbm..', 'mmm..bbbbm..', '.mmmmmbbmm..', '..mmmmmmmm..', '...mm...mm..', '...mm...mm..', '..mmm..mmm..'] },
+    fantasmino: { label: 'Fantasmino', hat: [3, 0], pal: { k: K, r: '#ff7aa8' }, map: [
+      '....mmmm....', '..mmmmmmmm..', '.mmmmmmmmmm.', '.mmmkmmmkmm.', '.mmmkmmmkmm.', '.mmmmmmmmmm.', '.mmmmrrmmmm.', '.mmmmmmmmmm.', '.mmmmmmmmmm.', '.mmmmmmmmmm.', '.mmmmmmmmmm.', '.mmmmmmmmmm.', '.mmmmmmmmmm.', '.mm.mm.mm.m.', '.m..m..m..m.'] },
+    coniglio: { label: 'Coniglietto', hat: [3, 4], pal: { k: K, p: '#ff9ab0', n: '#ff6a8a', w: '#fff6ea' }, map: [
+      '...m...m....', '...mp..mp...', '...mp..mp...', '...mm..mm...', '..mmmmmmm...', '.mmmkmmkmm..', '.mmmmmmmmm..', '.mmmmnnmmm..', '..mmmmmmm...', '..mwwwwwm...', '.mmwwwwwmm..', '..mwwwwwm...', '..mmmmmmm...', '..mm...mm...', '.mmm...mmm..'] }
+  };
+  // colore dei dettagli: quale parte cambia per ogni personaggio
+  const SECOND = { bimbo: 'p', gatto: 'w', robot: 'g', drago: 'b', fantasmino: 'k', coniglio: 'w' };
+  // dove stanno occhi, bocca e collo, per gli accessori
+  const ANCH = {
+    bimbo: { eyes: [[5, 3], [8, 3]], mouth: [5, 5], neck: 7 },
+    gatto: { eyes: [[4, 5], [8, 5]], mouth: [6, 7], neck: 9 },
+    robot: { eyes: [[4, 4], [7, 4]], mouth: [4, 5], neck: 8 },
+    drago: { eyes: [[7, 2]], mouth: [8, 4], neck: 6 },
+    fantasmino: { eyes: [[4, 3], [8, 3]], mouth: [5, 6], neck: 8 },
+    coniglio: { eyes: [[4, 5], [7, 5]], mouth: [5, 7], neck: 9 }
+  };
+  const ACCS = {
+    nessuno: { label: 'Nessuno', color: '#000000' },
+    occhiali: { label: 'Occhiali', color: '#1a1a2a' },
+    baffi: { label: 'Baffi', color: '#4a2e1a' },
+    sciarpa: { label: 'Sciarpa', color: '#e84040' },
+    papillon: { label: 'Papillon', color: '#ff6fb5' },
+    mantello: { label: 'Mantello', color: '#7a3ad8' },
+    zainetto: { label: 'Zainetto', color: '#3aa8e8' }
   };
   const HATS = {
-    nessuno: { label: 'Nessuno', map: [] },
+    nessuno: { label: 'Nessuno', map: [], pal: { c: '#000000' } },
     cappellino: { label: 'Cappellino', pal: { c: '#e84040', b: '#b02a2a' }, map: ['.cccc....', 'cccccc...', 'ccccccbbb'] },
-    corona: { label: 'Corona', pal: { y: '#ffd23f', r: '#ff4a6a', b: '#4ac8ff' }, map: ['y..y..y', 'yyyyyyy', 'yryybyy'] },
-    fiocco: { label: 'Fiocco', pal: { p: '#ff6fb5', d: '#d04a8a' }, map: ['pp.pp', 'ppdpp', 'pp.pp'] }
+    corona: { label: 'Corona', pal: { c: '#ffd23f', r: '#ff4a6a', b: '#4ac8ff' }, map: ['c..c..c', 'ccccccc', 'crccbcc'] },
+    fiocco: { label: 'Fiocco', pal: { c: '#ff6fb5', d: '#d04a8a' }, map: ['cc.cc', 'ccdcc', 'cc.cc'] },
+    cilindro: { label: 'Cilindro', pal: { c: '#2a2a3a', b: '#e84040' }, map: ['.cccc.', '.cccc.', '.cccc.', '.bbbb.', 'cccccc'] },
+    strega: { label: 'Strega', pal: { c: '#5a2a8a', b: '#ffd23f' }, map: ['....c..', '...cc..', '..ccc..', '..ccc..', '.bbbbb.', 'ccccccc'] },
+    cuffia: { label: 'Cuffia', pal: { c: '#3aa8e8', w: '#ffffff', b: '#ffffff' }, map: ['..w..', '.ccc.', 'ccccc', 'bbbbb'] },
+    pirata: { label: 'Pirata', pal: { c: '#2a2a3a', w: '#ffffff' }, map: ['..ccc..', '.ccwcc.', 'ccccccc'] },
+    fiore: { label: 'Fiore', pal: { c: '#ff6fb5', y: '#ffd23f' }, map: ['.c.c.', 'ccycc', '.c.c.'] },
+    elmetto: { label: 'Elmetto', pal: { c: '#ffd23f', b: '#c99a00' }, map: ['.cccc.', 'cccccc', 'bbbbbb'] },
+    antenne: { label: 'Antenne', pal: { c: '#ff6fb5', k: '#2a1e2e' }, map: ['c...c', '.k.k.', '.k.k.'] }
   };
   const COLORS = [
     { id: 'rosso', c: '#ff5a5a' }, { id: 'arancione', c: '#ff9f2a' }, { id: 'giallo', c: '#ffd23f' },
@@ -545,26 +604,26 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       worlds: [
         { name: 'Prati Fioriti', theme: 'prati', transpose: 0, boss: 'riccio',
           enemies: { p: 'lumaca', k: 'riccio', b: 'ape', j: 'coniglio', g: 'talpa' },
-          levels: ['Primi passi', 'Il ruscello', 'Colline a molla', 'Re Riccio'] },
+          levels: ['Primi passi', 'Il ruscello', 'Colline a molla', 'Il bosco delle api', 'Campo di girasoli', 'Re Riccio'] },
         { name: 'Spiaggia del Sole', theme: 'spiaggia', transpose: 2, boss: 'granchio',
           enemies: { p: 'granchio', k: 'ricciomare', b: 'gabbiano', j: 'pesce', g: 'scimmia' },
-          levels: ['Sabbia calda', 'Granchi in fila', 'Onde e conchiglie', 'Capitan Granchione'] },
+          levels: ['Sabbia calda', 'Granchi in fila', 'Onde e conchiglie', 'La baia dei gabbiani', 'Isola delle palme', 'Capitan Granchione'] },
         { name: 'Montagne di Ghiaccio', theme: 'montagne', transpose: -3, boss: 'yeti',
           enemies: { p: 'pinguino', k: 'pupazzo', b: 'fiocco', j: 'coniglioneve', g: 'gufo' },
-          levels: ['Pista scivolosa', 'Bufera di neve', 'Grotte di cristallo', 'Yeti Brontolone'] }
+          levels: ['Pista scivolosa', 'Bufera di neve', 'Grotte di cristallo', 'Il ponte di ghiaccio', 'La vetta', 'Yeti Brontolone'] }
       ]
     },
     halloween: {
       worlds: [
         { name: 'Orto delle Zucche', theme: 'orto', transpose: 0, boss: 'zuccone',
           enemies: { p: 'zucca', k: 'zucca', b: 'pipistrello', j: 'melma', g: 'fantasma' },
-          levels: ['Dolcetto o scherzetto', 'Zucche ribelli', 'Il recinto storto', 'Zuccone!'] },
+          levels: ['Dolcetto o scherzetto', 'Zucche ribelli', 'Il recinto storto', 'Lo spaventapasseri', 'La notte delle lucciole', 'Zuccone!'] },
         { name: 'Cantine del Castello', theme: 'cantine', transpose: -2, boss: 'melmoso',
           enemies: { p: 'scheletro', k: 'armatura', b: 'pipistrello2', j: 'melma', g: 'fantasma' },
-          levels: ['Scale scricchiolanti', 'Ossa a spasso', 'Melma a colazione', 'Re Melmoso'] },
+          levels: ['Scale scricchiolanti', 'Ossa a spasso', 'Melma a colazione', 'Il corridoio delle armature', 'Botti e ragnatele', 'Re Melmoso'] },
         { name: 'Soffitta Stregata', theme: 'soffitta', transpose: 3, boss: 'strega',
           enemies: { p: 'ragno', k: 'lanciaossa', b: 'pipistrello', j: 'melma', g: 'fantasma' },
-          levels: ['Ragnatele e pipistrelli', 'Assi traballanti', 'Il baule misterioso', 'La Strega Zuccona'] }
+          levels: ['Ragnatele e pipistrelli', 'Assi traballanti', 'Il baule misterioso', 'La scopa volante', 'La torre della strega', 'La Strega Zuccona'] }
       ]
     }
   };
@@ -596,6 +655,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     { id: 'murone', tier: 2, rows: ['.....ccc......', '.....###......', '.....###......', '.....###......', '.....###......', '.....###......', '.....###......', ...G3(14)] },
     { id: 'torre', tier: 2, rows: ['....cccc....', '....====....', '............', '............', '............', '............', ...G3(12)] },
 
+    { id: 'casse', tier: 2, minN: 3, rows: ['....c..c....', '............', '............', '####XXXX####', '####cccc####', '############'] },
+
     { id: 'speciale', tier: 3, rows: ['..............', '..........g...', '..............', '....c..c..c...', ...G3(14)] },
     { id: 'scala', tier: 3, rows: ['..........c...', '........====..', '..............', '.....====.....', '..............', '..====........', '..............', '..............', ...G3(14)] },
     { id: 'ascensore', tier: 3, rows: ['.........cc.......', '........#####.....', '........#####.....', '........#####.....', '........#####.....', '...V....#####.....', ...G3(18)] },
@@ -604,6 +665,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
     { id: 'scivolo', tier: 3, rows: ['..############....', '..############....', '..############....', '..############....', '..############....', '..############....', '..uuuuuuuuuuuu....', '...c..c..c..c.....', ...G3(18)] },
     { id: 'baratro', tier: 3, rows: ['......ccc........', '.....c...c.......', '.................', '.................', '####.......######', '####.......######', '####.......######'] },
+
+    { id: 'abisso', tier: 3, minN: LPW, rows: ['......ccc.......', '....c.....c.....', '...c.......c....', '................', '................', '................', '###..........###', '###..........###', '###..........###'] },
+    { id: 'camino', tier: 3, minN: 2 * LPW, rows: ['.....cc.....', '............', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '...##..##...', '............', '............', ...G3(12)] },
+    { id: 'cassette', tier: 4, minN: 3, rows: ['............', '..c.c.c.c...', '..XXXXXXXX..', '..X......X..', '..X.cccc.X..', '############', '############', '############'] },
 
     { id: 'pilastri', tier: 4, rows: ['....c....c....c.....', '....................', '....##...##...##....', '##..##...##...##..##', '##~~##~~~##~~~##~~##', '####################'] },
     { id: 'stormo', tier: 4, rows: ['......b.....b.....', '..................', '....c....c....c...', '...===..===..===..', '..................', '##..............##', '##~~~~~~~~~~~~~~##', '##################'] },
@@ -637,42 +702,54 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   function blankGrid(w) { const g = []; for (let y = 0; y < ROWS; y++) g.push(new Array(w).fill(' ')); return g; }
 
-  function buildLevel(mode, n, dk) {
-    const D = DIFFS[dk], rng = mulberry32((mode === 'halloween' ? 9000 : 4242) + n * 7919);
-    const world = Math.floor(n / 4), isBoss = n % 4 === 3;
-    const maxTier = Math.min(4, 1 + Math.floor((n + 1) / 2.5));
-    const count = isBoss ? 4 + Math.floor(n / 2) : 6 + n;
-    const pool = CHUNKS.filter(c => c.tier <= maxTier);
+  // Mappe casuali: a ogni partita il livello cambia (pezzi diversi, a volte specchiati, monete e nemici in piu').
+  function buildLevel(mode, n, dk, seed) {
+    const D = DIFFS[dk], rng = mulberry32(seed);
+    const world = Math.floor(n / LPW), isBoss = n % LPW === LPW - 1;
+    const prog = n / (TOTAL - 1);
+    const maxTier = Math.min(4, 1 + Math.floor(prog * 4.4 + 0.4));
+    const count = isBoss ? 3 + world * 2 + Math.floor(rng() * 2) : 5 + Math.floor(prog * 9) + Math.floor(rng() * 4);
+    const pool = CHUNKS.filter(c => c.tier <= maxTier && (c.minN || 0) <= n);
     const pieces = [SPECIAL.start];
-    let prev = null;
+    const recent = [];
     for (let i = 0; i < count; i++) {
       let total = 0;
-      const ws = pool.map(c => { const w = c === prev ? 0 : c.tier === maxTier ? 3 : c.tier === maxTier - 1 ? 2 : 1; total += w; return w; });
+      const ws = pool.map(c => { const w = recent.includes(c) ? 0 : c.tier === maxTier ? 3 : c.tier === maxTier - 1 ? 2 : 1; total += w; return w; });
       let r = rng() * total, chosen = pool[0];
       for (let k = 0; k < pool.length; k++) { r -= ws[k]; if (r <= 0) { chosen = pool[k]; break; } }
-      pieces.push(chosen); prev = chosen;
+      recent.push(chosen); if (recent.length > 2) recent.shift();
+      const mirror = !/[MV]/.test(chosen.rows.join('')) && rng() < 0.5;
+      pieces.push(mirror ? { id: chosen.id, w: chosen.w, rows: chosen.rows.map(row => [...row].reverse().join('')) } : chosen);
       if (D.heartChunk && i === Math.floor(count / 2)) pieces.push(SPECIAL.heart);
       if ((i + 1) % D.cpEvery === 0 && i < count - 1) pieces.push(SPECIAL.check);
     }
     if (isBoss) pieces.push(SPECIAL.check, SPECIAL.arena);
     pieces.push(SPECIAL.end);
-    const w = pieces.reduce((s, p) => s + p.w, 0);
+    const w = pieces.reduce((s2, p2) => s2 + p2.w, 0);
     const grid = blankGrid(w);
     let ox = 0, arena = null;
-    for (const p of pieces) {
-      if (p === SPECIAL.arena) arena = { x0: ox, x1: ox + 24 };
-      const off = ROWS - p.rows.length;
-      p.rows.forEach((row, ry) => {
-        for (let x = 0; x < p.w; x++) {
+    for (const p2 of pieces) {
+      if (p2 === SPECIAL.arena) arena = { x0: ox, x1: ox + 24 };
+      const off = ROWS - p2.rows.length;
+      p2.rows.forEach((row, ry) => {
+        for (let x = 0; x < p2.w; x++) {
           const c = row[x] || '.';
           grid[off + ry][ox + x] = c === '.' ? ' ' : c;
         }
       });
-      ox += p.w;
+      ox += p2.w;
     }
-    // il cancello del boss arriva fino al cielo
+    // un po' di sorprese: monete sospese e qualche nemico in piu' sui tratti piatti
+    const stop = arena ? arena.x0 - 2 : w - 14;
+    for (let x = 10; x < stop; x++) {
+      const flat = grid[14][x] === '#' && grid[13][x] === ' ' && grid[12][x] === ' ' && grid[11][x] === ' ';
+      if (!flat) continue;
+      const roll = rng();
+      if (roll < 0.07) { grid[11 - Math.floor(rng() * 2)][x] = 'c'; }
+      else if (roll < 0.085 + world * 0.008 && grid[14][x - 2] === '#' && grid[14][x + 2] === '#') grid[13][x] = 'p';
+    }
     for (let x = 0; x < w; x++) {
-      const top = grid.findIndex(r => r[x] === 'G');
+      const top = grid.findIndex(r2 => r2[x] === 'G');
       if (top > 0) for (let y = 0; y < top; y++) grid[y][x] = 'G';
     }
     return { grid, w, world, isBoss, arena, tips: [] };
@@ -708,7 +785,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   function normalize(s) {
     const d = { hero: null, coins: 0, mode: 'classic', diff: 'normale', unlocked: { classic: 1, halloween: 1 },
       stars: { classic: emptyStars(), halloween: emptyStars() }, sfx: true, music: true, tutorialDone: false,
-      seen: [], cloudChoice: null, updatedAt: 0 };
+      seen: [], cloudChoice: null, updatedAt: 0, v6: true,
+      abilities: { dash: false, wall: false, pound: false }, story: {}, pendingMsgs: [], admin: false, adminBackup: null };
     if (!s || typeof s !== 'object') return d;
     const n = { ...d, ...s, unlocked: { ...d.unlocked, ...(s.unlocked || {}) },
       stars: { classic: { ...emptyStars(), ...((s.stars || {}).classic || {}) }, halloween: { ...emptyStars(), ...((s.stars || {}).halloween || {}) } },
@@ -716,6 +794,26 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     if (!DIFFS[n.diff]) n.diff = 'normale';
     if (!MODES[n.mode]) n.mode = 'classic';
     if (!(n.coins >= 0)) n.coins = 0;
+    n.abilities = { ...d.abilities, ...(s.abilities || {}) };
+    n.story = { ...(s.story || {}) };
+    n.pendingMsgs = Array.isArray(s.pendingMsgs) ? s.pendingMsgs.slice() : [];
+    if (!s.v6) {
+      // i salvataggi vecchi avevano 4 livelli per mondo
+      const conv = i => Math.floor(i / 4) * LPW + (i % 4 === 3 ? LPW - 1 : i % 4);
+      for (const m of ['classic', 'halloween']) {
+        const u = n.unlocked[m] || 1;
+        n.unlocked[m] = Math.min(TOTAL, conv(Math.max(0, u - 1)) + 1);
+        for (const dk of Object.keys(n.stars[m])) {
+          const nw = [];
+          (n.stars[m][dk] || []).forEach((v, i) => { if (v) nw[conv(i)] = v; });
+          n.stars[m][dk] = nw;
+        }
+        if (u > 3) n.abilities.pound = true;
+        if (u > 4) n.abilities.dash = true;
+        if (u > 8) n.abilities.wall = true;
+      }
+      n.v6 = true;
+    }
     return n;
   }
   function loadSave() {
@@ -787,7 +885,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     if (state === 'title') renderTitle();
   })();
   const starCount = m => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1);
-  const heroOr = () => save.hero || { name: 'Saltino', body: 'bimbo', color: 'azzurro', hat: 'cappellino' };
+  const HERO_DEFAULT = { name: 'Saltino', body: 'bimbo', color: '#3aa8e8', color2: null, hat: 'cappellino', hatColor: null, acc: 'nessuno', accColor: null };
+  const heroOr = () => ({ ...HERO_DEFAULT, ...(save.hero || {}) });
 
   // ================= audio =================
   let actx = null;
@@ -813,6 +912,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     jump: () => tone(320, 0.12, 'square', 0.04, 640),
     blip: () => tone(700 + Math.random() * 300, 0.03, 'square', 0.018),
     slide: () => tone(220, 0.25, 'sawtooth', 0.03, 90),
+    dash: () => tone(500, 0.16, 'sawtooth', 0.035, 1200),
+    pound: () => { tone(900, 0.12, 'square', 0.04, 200); },
     djump: () => tone(480, 0.14, 'square', 0.04, 960),
     coin: () => { tone(988, 0.06, 'square', 0.035); tone(1319, 0.14, 'square', 0.035, null, 0.05); },
     stomp: () => tone(260, 0.16, 'square', 0.06, 70),
@@ -877,13 +978,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   function loadLevel(n) {
     const mode = save.mode;
     const tutorial = n < 0;
-    const built = tutorial ? buildTutorial() : buildLevel(mode, n, save.diff);
+    const built = tutorial ? buildTutorial() : buildLevel(mode, n, save.diff, (Math.random() * 1e9) | 0);
     const wdef = worldsOf(mode)[built.world];
     const rng = mulberry32(99 + n);
     const L = {
       n, tutorial, mode, wdef, theme: THEMES[wdef.theme], themeKey: wdef.theme, world: built.world,
-      name: tutorial ? 'Tutorial' : wdef.levels[n % 4], w: built.w, grid: built.grid, arena: built.arena,
-      coins: [], loose: [], hearts: [], checks: [], enemies: [], plats: [], projs: [], tips: built.tips.map(x => ({ ...x, done: false })),
+      name: tutorial ? 'Tutorial' : wdef.levels[n % LPW], w: built.w, grid: built.grid, arena: built.arena,
+      coins: [], loose: [], hearts: [], checks: [], enemies: [], plats: [], projs: [], queue: [], tips: built.tips.map(x => ({ ...x, done: false })),
       springs: new Map(), crumble: new Map(), door: null, start: { tx: 2, ty: 13 }, boss: null,
       got: 0, hits: 0, earned: 0, introT: 2.2, doorOpen: 0
     };
@@ -905,7 +1006,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     lv = L;
     L.tiles = renderTiles(L);
     L.respawn = { x: L.start.tx * T + 3, y: L.start.ty * T + T - 15 };
-    P = { x: L.respawn.x, y: L.respawn.y, w: 11, h: STAND_H, vx: 0, vy: 0, onGround: false, coyote: 0, jumpBuf: 0, slide: 0, drop: 0,
+    P = { x: L.respawn.x, y: L.respawn.y, w: 11, h: STAND_H, vx: 0, vy: 0, onGround: false, coyote: 0, jumpBuf: 0, slide: 0, drop: 0, dash: 0, dashCool: 0, dashUsed: false, pound: 0,
       face: 1, anim: 0, inv: 0, knock: 0, ride: null, hearts: D.hearts, canDouble: true, sx: 1, sy: 1, rot: 0 };
     cam = clamp(P.x - VW / 2 + 40, 0, L.w * T - VW);
     particles = []; bubbles = []; heartFx = []; death = null; iris = { t: 0.45, max: 0.45 };
@@ -935,7 +1036,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     if (c === '-') { const s = lv.crumble.get(ty * lv.w + tx); if (s && s.state === 'gone') return ' '; }
     return c;
   }
-  const isSolid = c => c === '#' || c === 'G' || c === 'u';
+  const isSolid = c => c === '#' || c === 'G' || c === 'u' || c === 'X';
   const standable = c => isSolid(c) || c === '=' || c === '-';
   // I blocchi bassi 'u' sporgono 8 pixel nella casella sotto: per passare bisogna abbassarsi.
   function extRects(e) {
@@ -1017,7 +1118,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     flash = Math.max(0, flash - dt);
     if (state === 'tip') { updateTip(dt); jumpPressed = false; return; }
 
-    if (state === 'title' || state === 'levels' || state === 'hero' || state === 'login') {
+    if (state === 'title' || state === 'levels' || state === 'hero' || state === 'login' || state === 'story') {
       cam = (Math.sin(t * (reduceMotion ? 0.03 : 0.08)) * 0.5 + 0.5) * (lv.w * T - VW);
       jumpPressed = false;
       return;
@@ -1470,6 +1571,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < lv.w; x++) if (lv.grid[y][x] === 'G') lv.grid[y][x] = ' ';
     lv.tiles = renderTiles(lv);
     lv.projs = [];
+    const w = lv.world, name = heroOr().name;
+    lv.queue.push({ key: `${save.mode}:outro${w}`, text: loreText(LORE[save.mode].outro[w], name) });
+    const ab = w === 0 ? 'dash' : w === 1 ? 'wall' : null;
+    if (ab && unlockAbility(ab)) lv.queue.push({ key: null, text: ABILITY_TEXT[ab] });
     for (let i = 0; i < 25; i++) lv.loose.push({ x: b.x + b.w / 2, y: b.y + 4, vx: (Math.random() - 0.5) * 260, vy: -200 - Math.random() * 250, life: 12, got: false, col: i % 4 });
     sfx.win();
   }
@@ -1483,6 +1588,39 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   }
 
   function setHeight(h) { P.y += P.h - h; P.h = h; }
+  // da che parte c'e' un muro attaccato al giocatore (1 destra, -1 sinistra, 0 niente)
+  function wallSide() {
+    const t0 = Math.floor((P.y + 3) / T), t1 = Math.floor((P.y + P.h - 3) / T);
+    const r = Math.floor((P.x + P.w + 1.5) / T), l = Math.floor((P.x - 1.5) / T);
+    for (let ty = t0; ty <= t1; ty++) {
+      if (isSolid(tile(r, ty)) && r < lv.w) return 1;
+      if (isSolid(tile(l, ty)) && l >= 0) return -1;
+    }
+    return 0;
+  }
+  // atterraggio dello schianto: rompe le casse, schiaccia i nemici vicini
+  function poundImpact() {
+    const ty = Math.floor((P.y + P.h + 1) / T);
+    let broke = false;
+    for (let tx = Math.floor(P.x / T) - 1; tx <= Math.floor((P.x + P.w - 0.01) / T) + 1; tx++) {
+      if (tile(tx, ty) === 'X') {
+        lv.grid[ty][tx] = ' '; broke = true;
+        emit(tx * T + 8, ty * T + 8, 12, '#c8894a', 90, 300, 0.7);
+      }
+    }
+    if (broke) { lv.tiles = renderTiles(lv); sfx.crack(); P.onGround = false; P.vy = POUND_V; return; }
+    P.pound = 0;
+    if (!reduceMotion) shake = 0.22;
+    sfx.thud();
+    emit(P.x + P.w / 2, P.y + P.h, 14, '#d8d0e8', 90, 200, 0.4);
+    for (const e of lv.enemies) {
+      if (!e.alive || !canStomp(e)) continue;
+      if (Math.abs(e.x + e.w / 2 - (P.x + P.w / 2)) < 52 && Math.abs(e.y + e.h - (P.y + P.h)) < 20) {
+        e.alive = false; e.timer = e.k.reassemble ? 3 : 0.6;
+        bubble(e, 'Bum!', 1);
+      }
+    }
+  }
   function canStand() { return boxFree({ x: P.x, y: P.y + P.h - STAND_H, w: P.w, h: STAND_H }); }
   function onOneWay() {
     if (P.ride) return true;
@@ -1529,6 +1667,22 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       else if (P.vx > target) P.vx = Math.max(target, P.vx - a * dt);
     }
 
+    // scatto
+    if (P.dashCool > 0) P.dashCool -= dt;
+    if (P.onGround) P.dashUsed = false;
+    if (dashPressed && save.abilities.dash && P.dashCool <= 0 && !P.dashUsed && P.slide <= 0 && P.pound === 0) {
+      if (P.h !== STAND_H && canStand()) setHeight(STAND_H);
+      P.dash = 0.2; P.dashCool = 0.55;
+      if (!P.onGround) P.dashUsed = true;
+      sfx.dash();
+      emit(P.x + P.w / 2, P.y + P.h / 2, 8, '#ffffff', 40, 0, 0.3);
+    }
+    // schianto
+    if (downPressed && !P.onGround && save.abilities.pound && P.pound === 0 && P.dash <= 0) {
+      P.pound = 0.12; P.sx = 1.25; P.sy = 0.8;
+      sfx.pound();
+    }
+
     // salto: altezza fissa, doppio salto in aria, e se tieni premuto continui a saltare
     if (jumpPressed) P.jumpBuf = 0.14; else P.jumpBuf -= dt;
     P.coyote = P.onGround ? D.coyote : P.coyote - dt;
@@ -1538,9 +1692,28 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       if (P.h !== STAND_H) setHeight(STAND_H);
       P.slide = 0;
       doJump(JUMP, false);
-    } else if (jumpPressed && !P.onGround && P.canDouble) { P.canDouble = false; doJump(DJUMP, true); }
+    } else if (jumpPressed && !P.onGround && save.abilities.wall && wallSide() && P.pound === 0) {
+      const sd = wallSide();
+      P.vy = -JUMP * 0.95; P.vx = -sd * 170; P.face = -sd; P.knock = 0.16; P.canDouble = true; P.dashUsed = false;
+      P.sx = 0.75; P.sy = 1.3;
+      sfx.jump();
+      emit(sd > 0 ? P.x + P.w : P.x, P.y + P.h / 2, 6, '#ffffff', 40, 60, 0.3);
+    } else if (jumpPressed && !P.onGround && P.canDouble && P.pound === 0) { P.canDouble = false; doJump(DJUMP, true); }
 
-    P.vy = Math.min(MAXFALL, P.vy + GRAV * (P.vy > 0 ? 1.1 : 1) * dt);
+    if (P.dash > 0) {
+      P.dash -= dt; P.vy = 0; P.vx = P.face * DASH_V;
+      if (Math.random() < 0.7) emit(P.x + P.w / 2, P.y + P.h / 2, 1, '#ffffff', 10, 0, 0.25);
+      if (P.dash <= 0) P.vx = P.face * RUN;
+    } else if (P.pound > 0) {
+      P.pound -= dt; P.vx = 0; P.vy = 0;
+      if (P.pound <= 0) { P.pound = -1; P.vy = POUND_V; }
+    } else if (P.pound < 0) {
+      P.vx = 0; P.vy = POUND_V;
+    } else P.vy = Math.min(MAXFALL, P.vy + GRAV * (P.vy > 0 ? 1.1 : 1) * dt);
+    if (save.abilities.wall && !P.onGround && P.vy > WALL_SLIDE && dir !== 0 && wallSide() === dir && P.pound === 0) {
+      P.vy = WALL_SLIDE;
+      if (Math.random() < 0.3) emit(dir > 0 ? P.x + P.w : P.x, P.y + 3, 1, '#ffffff', 10, 40, 0.3);
+    }
 
     const prevX = P.x;
     P.x += P.vx * dt;
@@ -1573,11 +1746,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
         if (tile(tx, fy) === 'S' && P.y + P.h >= fy * T + 9) { spring = { tx, ty: fy }; break; }
       }
     }
+    if (P.pound < 0 && P.onGround && !spring) poundImpact();
     if (spring) {
       lv.springs.set(spring.ty * lv.w + spring.tx, 1);
       if (P.h !== STAND_H) setHeight(STAND_H);
       P.slide = 0;
-      P.vy = -SPRING; P.onGround = false; P.coyote = 0; P.canDouble = true;
+      P.vy = -SPRING * (P.pound < 0 ? 1.2 : 1); P.pound = 0; P.onGround = false; P.coyote = 0; P.canDouble = true;
       P.sx = 0.7; P.sy = 1.35;
       sfx.boing();
       bubble({ x: spring.tx * T, y: spring.ty * T - 14, w: 16, h: 16 }, 'Boing!', 0.7);
@@ -1586,7 +1760,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       emit(P.x + P.w / 2, P.y + P.h, 3, '#d8d0e8', 25, 100, 0.25);
     }
     P.anim += Math.abs(P.vx) * dt;
-    downPressed = false;
+    downPressed = false; dashPressed = false;
 
     // cadute e acqua
     if (P.y > VH + 20) return die('Sei caduto nel vuoto!');
@@ -1635,11 +1809,11 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     // nemici
     for (const e of lv.enemies) {
       if (!e.alive || !overlap(P, e.x, e.y, e.w, e.h)) continue;
-      const slideHit = P.slide > 0 && canStomp(e) && e.k.beh !== 'swooper' && e.k.beh !== 'flyer';
+      const slideHit = canStomp(e) && ((P.slide > 0 && e.k.beh !== 'swooper' && e.k.beh !== 'flyer') || P.dash > 0 || P.pound < 0);
       if (slideHit) {
         e.alive = false; e.timer = e.k.reassemble ? 3 : 0.6;
         sfx.stomp();
-        bubble(e, 'Travolto!', 1);
+        bubble(e, P.pound < 0 ? 'Bum!' : 'Travolto!', 1);
         emit(e.x + e.w / 2, e.y + 4, 8, '#ffffff', 60, 150, 0.4);
       } else if (P.vy > 0 && P.y + P.h - e.y < 10 && canStomp(e)) {
         e.alive = false;
@@ -1721,7 +1895,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   }
 
   function respawnPlayer() {
-    P.h = STAND_H; P.slide = 0; P.drop = 0;
+    P.h = STAND_H; P.slide = 0; P.drop = 0; P.dash = 0; P.pound = 0; P.dashUsed = false;
     P.x = lv.respawn.x; P.y = lv.respawn.y; P.vx = P.vy = 0; P.rot = 0;
     P.knock = 0; P.ride = null; P.inv = 1.2; P.canDouble = true;
     cam = clamp(P.x - VW / 2 + 40, 0, lv.w * T - VW);
@@ -1741,12 +1915,45 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     const arr = save.stars[save.mode][save.diff];
     const prevMask = arr[curLevel] || 0;
     arr[curLevel] = prevMask | mask;
-    save.unlocked[save.mode] = Math.max(save.unlocked[save.mode], Math.min(12, curLevel + 2));
+    save.unlocked[save.mode] = Math.max(save.unlocked[save.mode], Math.min(TOTAL, curLevel + 2));
+    let ability = null;
+    if (curLevel % LPW === 2 && unlockAbility('pound')) { ability = 'pound'; save.pendingMsgs.push(ABILITY_TEXT.pound); }
     persist();
-    lastResult = { mask, got: lv.got, total: lv.total, hits: lv.hits, earned: lv.earned };
+    lastResult = { mask, got: lv.got, total: lv.total, hits: lv.hits, earned: lv.earned, ability };
     state = 'done';
     showScreen('scrDone');
   }
+
+  // ================= storia =================
+  const LORE = {
+    classic: {
+      prologo: n => `Tanto tempo fa il Saltamondo rimbalzava felice nel cielo, tenuto su dalle tre Molle Stellari. Una notte Re Riccio, Capitan Granchione e lo Yeti Brontolone le hanno rubate. Senza le Molle le isole stanno scendendo piano piano... ${n}, tocca a te riportarle a casa!`,
+      intro: [
+        'Prati Fioriti. Re Riccio si è nascosto in fondo ai prati con la prima Molla Stellare. Le monete che trovi sono scintille delle Molle: raccoglile tutte!',
+        'Spiaggia del Sole. Capitan Granchione ha chiuso la seconda Molla Stellare nel suo forziere e la fa sorvegliare da un esercito di granchi.',
+        'Montagne di Ghiaccio. Sulla vetta più fredda lo Yeti Brontolone dorme abbracciato all’ultima Molla Stellare. Fai piano... o forse no!'
+      ],
+      outro: [
+        'Re Riccio ti restituisce la prima Molla Stellare. Dentro c’era una piuma dorata!',
+        'Capitan Granchione apre il forziere: la seconda Molla Stellare è tua, insieme a un paio di guanti rampicanti!',
+        n => `Lo Yeti ti consegna l’ultima Molla Stellare e torna a dormire. Il Saltamondo ricomincia a rimbalzare: grazie, ${n}! Ma il Gufo Saggio sente un brivido... prova la modalità Halloween!`
+      ]
+    },
+    halloween: {
+      prologo: n => `È la notte di Halloween e la Strega Zuccona ha stregato tutte le monete del paese, trasformandole in caramelle che vuole tenere per sé. ${n}, travestito per la festa, parte per riprenderle!`,
+      intro: [
+        'Orto delle Zucche. Le zucche si sono svegliate e obbediscono a Zuccone, il guardiano della strega.',
+        'Cantine del Castello. Nelle cantine buie vive Re Melmoso, che sputa melma su chiunque si avvicini.',
+        'Soffitta Stregata. In cima al castello la Strega Zuccona conta le caramelle rubate. È ora di finire la festa!'
+      ],
+      outro: [
+        'Zuccone si sgonfia e lascia cadere una piuma dorata!',
+        'Re Melmoso torna nella sua vasca e ti lancia un paio di guanti appiccicosi!',
+        n => `La Strega Zuccona si arrende e restituisce tutte le caramelle. Che Halloween fantastico, ${n}!`
+      ]
+    }
+  };
+  const loreText = (tx, name) => typeof tx === 'function' ? tx(name) : tx;
 
   // ================= messaggi del Gufo Saggio =================
   const coarse = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches);
@@ -1773,6 +1980,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     () => 'La bandierina salva il punto da cui ripartire se cadi.',
     () => 'Ecco la porta: entra per finire il livello. Bravissimo!'
   ];
+  const ABILITY_TEXT = {
+    dash: `Nuova abilità: SCATTO! ${ctl('Premi Shift (o X)', 'Premi il pulsante \u00BB')} per uno scatto velocissimo, anche in aria. Con lo scatto travolgi i nemici!`,
+    wall: `Nuova abilità: SALTO A MURO! In aria, contro un muro, ${ctl('premi Spazio', 'premi \u25B2')} per rimbalzare via. Se ti appoggi al muro scivoli giù piano.`,
+    pound: `Nuova abilità: SCHIANTO! In aria ${ctl('premi Giù', 'premi \u25BC')}: piombi giù fortissimo, schiacci i nemici vicini e rompi le casse di legno.`
+  };
+  function unlockAbility(k) {
+    if (save.abilities[k]) return false;
+    save.abilities[k] = true;
+    persist();
+    return true;
+  }
   const KIND_TIPS = {
     lumaca: 'Una lumaca! È lenta: saltale in testa.',
     riccio: 'Il riccio alza e abbassa le spine. Saltagli in testa solo quando le spine sono giù!',
@@ -1854,6 +2072,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   // Cose nuove: nel tutorial in punti fissi, nei livelli la prima volta che si incontrano.
   function checkTips() {
+    if (lv.queue.length) {
+      const q = lv.queue.shift();
+      if (q.key) { save.story[q.key] = true; persist(); }
+      showTip(q.text);
+      return;
+    }
     if (lv.tutorial) {
       for (const tp of lv.tips) if (!tp.done && P.x + P.w / 2 > tp.x) { tp.done = true; showTip(TUTORIAL_TIPS[tp.i](heroOr().name)); return; }
       return;
@@ -1882,12 +2106,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   }
 
   // ================= comandi =================
-  const keys = { left: false, right: false, jump: false, down: false };
-  let jumpPressed = false, downPressed = false;
+  const keys = { left: false, right: false, jump: false, down: false, dash: false };
+  let jumpPressed = false, downPressed = false, dashPressed = false;
   const KEYMAP = {
     ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
     ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', KeyZ: 'jump', KeyK: 'jump',
-    ArrowDown: 'down', KeyS: 'down'
+    ArrowDown: 'down', KeyS: 'down',
+    ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash', KeyJ: 'dash'
   };
   addEventListener('keydown', e => {
     ensureAudio();
@@ -1908,11 +2133,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     e.preventDefault();
     if (k === 'jump' && !keys.jump && !e.repeat) jumpPressed = true;
     if (k === 'down' && !keys.down && !e.repeat) downPressed = true;
+    if (k === 'dash' && !keys.dash && !e.repeat) dashPressed = true;
     keys[k] = true;
   });
   addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
   addEventListener('blur', () => {
-    keys.left = keys.right = keys.jump = keys.down = false;
+    keys.left = keys.right = keys.jump = keys.down = keys.dash = false;
     if (state === 'play') pauseGame();
   });
   cv.addEventListener('pointerdown', () => { ensureAudio(); cv.focus(); });
@@ -1925,6 +2151,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       if (state === 'tip') { if (k === 'jump') advanceTip(); return; }
       if (k === 'jump' && !keys.jump) jumpPressed = true;
       if (k === 'down' && !keys.down) downPressed = true;
+      if (k === 'dash' && !keys.dash) dashPressed = true;
       keys[k] = true;
       b.classList.add('on');
     });
@@ -1936,7 +2163,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   // ================= menu =================
   const $ = id => document.getElementById(id);
   const menu = $('menu');
-  const screens = ['scrLogin', 'scrTitle', 'scrHero', 'scrLevels', 'scrPause', 'scrDone', 'scrWin'];
+  const screens = ['scrLogin', 'scrTitle', 'scrHero', 'scrLevels', 'scrPause', 'scrDone', 'scrWin', 'scrStory'];
 
   function applyMode() {
     document.documentElement.dataset.mode = save.mode;
@@ -1948,6 +2175,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     menu.hidden = false;
     dialogEl.hidden = true; tip = null;
     if (id === 'scrLogin') renderLogin();
+    if (id === 'scrStory') renderStory();
+    if (id === 'scrPause') {
+      $('btnSkip').hidden = !save.admin || lv.tutorial;
+      const ab = save.abilities, names = [['dash', 'Scatto'], ['wall', 'Salto a muro'], ['pound', 'Schianto']].filter(([k]) => ab[k]).map(([, v]) => v);
+      $('pauseInfo').textContent = names.length ? `Le tue abilità: ${names.join(', ')}.` : 'Sconfiggi i boss per imparare nuove abilità!';
+    }
     if (id === 'scrTitle') renderTitle();
     if (id === 'scrLevels') renderLevelSelect();
     if (id === 'scrDone') renderDone();
@@ -1961,7 +2194,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   function showTitle() { state = 'title'; loadLevel(0); showScreen('scrTitle'); }
   function showLevels() {
     if (!save.hero) return openHero();
-    if (state !== 'title' && state !== 'hero' && state !== 'levels') loadLevel(Math.max(0, Math.min(curLevel, 11)));
+    if (state !== 'title' && state !== 'hero' && state !== 'levels') loadLevel(Math.max(0, Math.min(curLevel, TOTAL - 1)));
     state = 'levels';
     showScreen('scrLevels');
   }
@@ -1970,10 +2203,18 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     curLevel = n; D = DIFFS[save.diff];
     loadLevel(n);
     state = 'play';
-    jumpPressed = false; downPressed = false; jumpLock = false;
+    jumpPressed = false; downPressed = false; dashPressed = false; jumpLock = false;
     hideMenu();
+    if (n >= 0) {
+      const L = LORE[save.mode], name = heroOr().name, w = Math.floor(n / LPW);
+      const add = (key, tx) => { if (!save.story[key]) lv.queue.push({ key, text: loreText(tx, name) }); };
+      if (n === 0) add(`${save.mode}:prologo`, L.prologo);
+      if (n % LPW === 0) add(`${save.mode}:intro${w}`, L.intro[w]);
+      for (const m of save.pendingMsgs) lv.queue.push({ key: null, text: m });
+      if (save.pendingMsgs.length) { save.pendingMsgs = []; persist(); }
+    }
   }
-  function pauseGame() { state = 'pause'; keys.left = keys.right = keys.jump = keys.down = false; showScreen('scrPause'); }
+  function pauseGame() { state = 'pause'; keys.left = keys.right = keys.jump = keys.down = keys.dash = false; showScreen('scrPause'); }
   function resumeGame() { state = 'play'; hideMenu(); }
 
   function renderTitle() {
@@ -1993,6 +2234,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       : cloud.error === 'readonly' ? ' · con questo invito non posso salvare online'
       : cloud.error ? ' · salvataggio online non riuscito, riprovo al prossimo' : ' · salvato online';
     h.append(st);
+    if (save.admin) { const a = document.createElement('span'); a.className = 'lbl'; a.style.color = '#e0303f'; a.textContent = ' \u00b7 ADMIN'; h.append(a); }
     $('btnAccount').hidden = !window.claude;
     $('btnPlay').textContent = save.hero ? 'Gioca' : 'Crea il personaggio';
   }
@@ -2023,12 +2265,67 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     if (!menu.hidden) bc.focus({ preventScroll: true });
   }
 
+  function renderStory() {
+    const L = LORE[save.mode], name = heroOr().name, box = $('storyText');
+    box.textContent = '';
+    const parts = [];
+    if (save.story[`${save.mode}:prologo`]) parts.push(['Prologo', loreText(L.prologo, name)]);
+    for (let w = 0; w < 3; w++) {
+      if (save.story[`${save.mode}:intro${w}`]) parts.push([worldsOf(save.mode)[w].name, loreText(L.intro[w], name)]);
+      if (save.story[`${save.mode}:outro${w}`]) parts.push(['Vittoria!', loreText(L.outro[w], name)]);
+    }
+    if (!parts.length) { const pp = document.createElement('p'); pp.textContent = 'La storia comincia quando giochi il livello 1-1. Ogni capitolo che scopri resta qui.'; box.append(pp); return; }
+    for (const [h, tx] of parts) {
+      const h3 = document.createElement('h3'); h3.textContent = h;
+      const pp = document.createElement('p'); pp.textContent = tx;
+      box.append(h3, pp);
+    }
+  }
+
+  // ---------- modalita' admin (solo per test): scrivi "admins" per sbloccare tutto, "admin" per annullare ----------
+  const toastEl = $('toast');
+  let toastTimer = 0;
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 4000);
+  }
+  function setAdmin(on) {
+    if (on === !!save.admin) { toast(on ? 'La modalità admin è già attiva.' : 'La modalità admin è già spenta.'); return; }
+    if (on) {
+      save.adminBackup = { unlocked: { ...save.unlocked }, abilities: { ...save.abilities } };
+      save.admin = true;
+      save.unlocked = { classic: TOTAL, halloween: TOTAL };
+      save.abilities = { dash: true, wall: true, pound: true };
+      toast('Admin attivo: tutti i livelli e le abilità sbloccati. Scrivi "admin" per annullare.');
+    } else {
+      const b = save.adminBackup || {};
+      save.unlocked = b.unlocked ? { ...b.unlocked } : { classic: 1, halloween: 1 };
+      save.abilities = b.abilities ? { ...b.abilities } : { dash: false, wall: false, pound: false };
+      save.admin = false; save.adminBackup = null;
+      toast('Admin spento: livelli e abilità tornano come prima.');
+    }
+    persist();
+    if (state === 'levels') renderLevelSelect();
+    if (state === 'title') renderTitle();
+    if (state === 'pause') showScreen('scrPause');
+    syncBar();
+  }
+  let typed = '', adminTimer = 0;
+  addEventListener('keydown', e => {
+    if (!e.key || e.key.length !== 1) return;
+    typed = (typed + e.key.toLowerCase()).slice(-12);
+    clearTimeout(adminTimer);
+    if (typed.endsWith('admins')) { typed = ''; setAdmin(true); }
+    else if (typed.endsWith('admin')) adminTimer = setTimeout(() => { if (typed.endsWith('admin')) { typed = ''; setAdmin(false); } }, 900);
+  }, true);
+
   function renderLevelSelect() {
     applyMode();
     const arr = save.stars[save.mode][save.diff];
     let sum = 0;
-    for (let i = 0; i < 12; i++) sum += starCount(arr[i] || 0);
-    $('starTotal').textContent = `${DIFFS[save.diff].label} · ★ ${sum}/36`;
+    for (let i = 0; i < TOTAL; i++) sum += starCount(arr[i] || 0);
+    $('starTotal').textContent = `${DIFFS[save.diff].label} · ★ ${sum}/${TOTAL * 3}`;
     $('lvCoins').textContent = `● ${save.coins} monete`;
     $('btnTutorial2').textContent = save.tutorialDone ? 'Tutorial (fatto)' : 'Tutorial (consigliato)';
     const wrap = $('worlds');
@@ -2040,8 +2337,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       h.textContent = `Mondo ${wi + 1} · ${w.name}`;
       const grid = document.createElement('div');
       grid.className = 'lvgrid';
-      for (let j = 0; j < 4; j++) {
-        const n = wi * 4 + j;
+      for (let j = 0; j < LPW; j++) {
+        const n = wi * LPW + j;
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'lv'; b.id = 'lv' + n;
         const locked = n + 1 > save.unlocked[save.mode];
@@ -2053,7 +2350,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
         if (locked) { st.className = 'tag'; st.textContent = 'chiuso'; }
         else { st.className = 'st'; const c = starCount(arr[n] || 0); st.textContent = '★'.repeat(c) + '☆'.repeat(3 - c); }
         b.append(num, st);
-        if (j === 3) { const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = 'boss'; b.append(tg); }
+        if (j === LPW - 1) { const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = 'boss'; b.append(tg); }
         b.setAttribute('aria-label', `${w.levels[j]}${locked ? ', chiuso' : ''}`);
         b.addEventListener('click', () => startLevel(n));
         grid.append(b);
@@ -2061,7 +2358,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       box.append(h, grid);
       wrap.append(box);
     });
-    const firstOpen = Math.min(save.unlocked[save.mode], 12) - 1;
+    const firstOpen = Math.min(save.unlocked[save.mode], TOTAL) - 1;
     setTimeout(() => { const b = $(save.tutorialDone ? 'lv' + firstOpen : 'btnTutorial2'); if (b && !menu.hidden) b.focus({ preventScroll: true }); }, 0);
   }
 
@@ -2090,42 +2387,73 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       const tx = document.createElement('span'); tx.textContent = label;
       li.append(s, tx); ul.append(li);
     }
-    $('btnNext').textContent = curLevel === 11 ? 'Vai al finale' : 'Livello successivo';
+    $('btnNext').textContent = curLevel === TOTAL - 1 ? 'Vai al finale' : 'Livello successivo';
+    const ab = $('doneAbility');
+    ab.hidden = !r.ability;
+    if (r.ability) ab.textContent = 'Nuova abilità sbloccata: Schianto! Te la spiego al prossimo livello.';
   }
 
   function renderWin() {
     const arr = save.stars[save.mode][save.diff];
     let sum = 0;
-    for (let i = 0; i < 12; i++) sum += starCount(arr[i] || 0);
+    for (let i = 0; i < TOTAL; i++) sum += starCount(arr[i] || 0);
     $('winText').textContent = save.mode === 'halloween'
       ? `Bravissimo ${heroOr().name}! Hai battuto la Strega Zuccona e le monete sono tornate in paese.`
       : `Bravissimo ${heroOr().name}! Hai battuto lo Yeti Brontolone e attraversato tutto il Saltamondo. Ora prova la modalità Halloween!`;
-    $('winStars').textContent = `★ ${sum}/36`;
+    $('winStars').textContent = `★ ${sum}/${TOTAL * 3}`;
   }
 
   // ---------- creatore del personaggio ----------
   let draft = heroOr(), editing = false;
   const heroCv = $('heroCanvas'), heroCtx = heroCv.getContext('2d');
   heroCtx.imageSmoothingEnabled = false;
+  const SWATCHES = ['#ff5a5a', '#ff9f2a', '#ffd23f', '#5cc04a', '#3aa8e8', '#9b6bff', '#ff6fb5', '#ffffff', '#2a2a3a', '#8a5a3a'];
+  const SW_NAMES = ['Rosso', 'Arancione', 'Giallo', 'Verde', 'Azzurro', 'Viola', 'Rosa', 'Bianco', 'Nero', 'Marrone'];
+  const HERO_KEYS = ['name', 'body', 'color', 'color2', 'hat', 'hatColor', 'acc', 'accColor'];
 
-  function buildSeg(el, items, key) {
+  function buildChoice(el, items, key) {
     el.textContent = '';
     for (const it of items) {
       const b = document.createElement('button');
       b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = it.id; b.id = `${key}-${it.id}`;
-      if (key === 'color') { b.className = 'swatch'; b.style.background = it.c; b.setAttribute('aria-label', COLOR_NAMES[it.id]); }
-      else b.textContent = it.label;
+      b.textContent = it.label;
       b.addEventListener('click', () => { draft[key] = it.id; syncHero(); });
       el.append(b);
     }
   }
-  buildSeg($('bodySeg'), Object.entries(BODIES).map(([id, b]) => ({ id, label: b.label })), 'body');
-  buildSeg($('colorSeg'), COLORS, 'color');
-  buildSeg($('hatSeg'), Object.entries(HATS).map(([id, h]) => ({ id, label: h.label })), 'hat');
+  // colori: 10 pronti, "Originale" dove serve, e un selettore per qualsiasi colore
+  function buildColors(el, key, withAuto) {
+    el.textContent = '';
+    if (withAuto) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = ''; b.id = `${key}-auto`; b.className = 'swatch auto'; b.textContent = 'Originale';
+      b.addEventListener('click', () => { draft[key] = null; syncHero(); });
+      el.append(b);
+    }
+    SWATCHES.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = c; b.id = `${key}-${i}`; b.className = 'swatch';
+      b.style.background = c; b.setAttribute('aria-label', SW_NAMES[i]);
+      b.addEventListener('click', () => { draft[key] = c; syncHero(); });
+      el.append(b);
+    });
+    const inp = document.createElement('input');
+    inp.type = 'color'; inp.className = 'picker'; inp.id = `pick-${key}`; inp.title = 'Scegli un colore qualsiasi';
+    inp.setAttribute('aria-label', 'Scegli un colore qualsiasi');
+    inp.addEventListener('input', () => { draft[key] = inp.value; syncHero(); });
+    el.append(inp);
+  }
+  buildChoice($('bodySeg'), Object.entries(BODIES).map(([id, b]) => ({ id, label: b.label })), 'body');
+  buildColors($('colorSeg'), 'color', false);
+  buildColors($('color2Seg'), 'color2', true);
+  buildChoice($('hatSeg'), Object.entries(HATS).map(([id, h]) => ({ id, label: h.label })), 'hat');
+  buildColors($('hatColorSeg'), 'hatColor', true);
+  buildChoice($('accSeg'), Object.entries(ACCS).map(([id, a]) => ({ id, label: a.label })), 'acc');
+  buildColors($('accColorSeg'), 'accColor', true);
 
   function openHero() {
     editing = !!save.hero;
-    draft = { ...heroOr() };
+    draft = { ...heroOr(), color: heroColor(heroOr().color) };
     if (!save.hero) draft.name = '';
     $('heroName').value = draft.name;
     state = 'hero';
@@ -2135,12 +2463,20 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   }
 
   function syncHero() {
-    for (const [key, segId] of [['body', 'bodySeg'], ['color', 'colorSeg'], ['hat', 'hatSeg']]) {
+    for (const [key, segId] of [['body', 'bodySeg'], ['hat', 'hatSeg'], ['acc', 'accSeg']]) {
       $(segId).querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.v === draft[key])));
     }
+    for (const [key, segId] of [['color', 'colorSeg'], ['color2', 'color2Seg'], ['hatColor', 'hatColorSeg'], ['accColor', 'accColorSeg']]) {
+      const v = (draft[key] || '').toLowerCase();
+      $(segId).querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.v.toLowerCase() === v)));
+      const pk = $(`pick-${key}`);
+      if (pk) pk.value = draft[key] || (key === 'hatColor' ? (HATS[draft.hat].pal.c || '#000000') : key === 'accColor' ? ACCS[draft.acc].color : '#888888');
+    }
+    $('hatColorSeg').hidden = draft.hat === 'nessuno';
+    $('accColorSeg').hidden = draft.acc === 'nessuno';
     const name = $('heroName').value.trim();
     draft.name = name;
-    const changed = save.hero && ['name', 'body', 'color', 'hat'].some(k => save.hero[k] !== draft[k]);
+    const changed = save.hero && HERO_KEYS.some(k => (heroOr()[k] ?? null) !== (draft[k] ?? null));
     const note = $('heroNote'), saveBtn = $('btnHeroSave');
     $('btnHeroCancel').hidden = !save.hero;
     if (!save.hero) {
@@ -2151,7 +2487,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     } else {
       $('heroTitle').textContent = 'Il tuo personaggio';
       saveBtn.textContent = `Cambia (${COST} monete)`;
-      if (!changed) { note.textContent = `Hai ${save.coins} monete. Scegli cosa cambiare: nome, personaggio, colore o cappello.`; saveBtn.disabled = true; }
+      if (!changed) { note.textContent = `Hai ${save.coins} monete. Puoi cambiare nome, personaggio, colori, cappello e accessorio.`; saveBtn.disabled = true; }
       else if (save.coins < COST) { note.textContent = `Ti servono ${COST} monete per salvare le modifiche. Ne hai ${save.coins}: ne mancano ${COST - save.coins}.`; saveBtn.disabled = true; }
       else { note.textContent = `Hai ${save.coins} monete. Salvando ne spendi ${COST} e te ne restano ${save.coins - COST}.`; saveBtn.disabled = name.length === 0; }
     }
@@ -2159,6 +2495,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   }
   $('heroName').addEventListener('input', syncHero);
   $('heroName').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('btnHeroSave').disabled) $('btnHeroSave').click(); });
+  $('btnHeroRandom').addEventListener('click', () => {
+    const one = a => a[Math.floor(Math.random() * a.length)];
+    const rc = () => '#' + Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, '0');
+    Object.assign(draft, {
+      body: one(Object.keys(BODIES)), color: rc(), color2: Math.random() < 0.5 ? rc() : null,
+      hat: one(Object.keys(HATS)), hatColor: Math.random() < 0.6 ? rc() : null,
+      acc: one(Object.keys(ACCS)), accColor: Math.random() < 0.6 ? rc() : null
+    });
+    syncHero();
+  });
   $('btnHeroSave').addEventListener('click', () => {
     const name = $('heroName').value.trim().slice(0, 12);
     if (!name) return;
@@ -2166,7 +2512,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       if (save.coins < COST) return;
       save.coins -= COST;
     }
-    save.hero = { name, body: draft.body, color: draft.color, hat: draft.hat };
+    save.hero = { name, body: draft.body, color: draft.color, color2: draft.color2 || null, hat: draft.hat, hatColor: draft.hatColor || null, acc: draft.acc, accColor: draft.accColor || null };
     persist();
     if (!editing) { state = 'levels'; showScreen('scrLevels'); }
     else showTitle();
@@ -2189,9 +2535,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   $('btnResume').addEventListener('click', resumeGame);
   $('btnRetry').addEventListener('click', () => startLevel(curLevel));
   $('btnPauseLevels').addEventListener('click', showLevels);
+  $('btnSkip').addEventListener('click', () => { if (save.admin && !lv.tutorial) levelDone(); });
+  $('btnStory').addEventListener('click', () => { state = 'story'; showScreen('scrStory'); });
+  $('btnStoryBack').addEventListener('click', showTitle);
   $('btnNext').addEventListener('click', () => {
     if (lastResult && lastResult.tutorial) { state = 'levels'; showScreen('scrLevels'); return; }
-    if (curLevel === 11) { state = 'win'; showScreen('scrWin'); }
+    if (curLevel === TOTAL - 1) { state = 'win'; showScreen('scrWin'); }
     else startLevel(curLevel + 1);
   });
   $('btnRetry2').addEventListener('click', () => startLevel(curLevel));
@@ -2233,6 +2582,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   function syncBar() {
     gameBox.classList.toggle('playing', menu.hidden);
+    gameBox.classList.toggle('can-dash', !!save.abilities.dash);
     btnPause.hidden = state !== 'play';
     btnSfx.textContent = save.sfx ? 'Suoni: sì' : 'Suoni: no';
     btnMusic.textContent = save.music ? 'Musica: sì' : 'Musica: no';
@@ -2294,23 +2644,44 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     }
   }
 
+  function heroColor(c) { return typeof c === 'string' && c[0] === '#' ? c : (COLORS.find(x => x.id === c) || COLORS[4]).c; }
   function heroPal(h) {
     const body = BODIES[h.body] || BODIES.bimbo;
-    const col = (COLORS.find(c => c.id === h.color) || COLORS[4]).c;
-    return { ...body.pal, m: col };
+    const pal = { ...body.pal, m: heroColor(h.color) };
+    if (h.color2 && SECOND[h.body]) pal[SECOND[h.body]] = h.color2;
+    return pal;
   }
   // Disegna l'eroe a partire dall'angolo in alto a sinistra (x, y), alto 15 pixel.
   function drawHero(c, h, x, y, scale, flip, xEyes, shade = true) {
-    const body = BODIES[h.body] || BODIES.bimbo;
+    const bodyKey = BODIES[h.body] ? h.body : 'bimbo';
+    const body = BODIES[bodyKey], an = ANCH[bodyKey];
     const pal = heroPal(h);
     if (xEyes) pal.k = '#ffffff';
+    const acc = ACCS[h.acc] ? h.acc : 'nessuno';
+    const ac = h.accColor || ACCS[acc].color;
+    const pp = (lx, ly, w, hh, col) => { c.fillStyle = col; c.fillRect(x + (flip ? 12 - lx - w : lx) * scale, y + ly * scale, w * scale, hh * scale); };
+    // dietro al corpo
+    if (acc === 'mantello') { pp(0, an.neck, 3, 7, ac); pp(1, an.neck + 7, 3, 1, shadeHex(ac, -0.3)); pp(0, an.neck, 1, 7, shadeHex(ac, -0.25)); }
+    if (acc === 'zainetto') { pp(0, an.neck, 3, 5, ac); pp(0, an.neck + 1, 3, 1, shadeHex(ac, -0.3)); }
     drawMap(c, body.map, pal, x, y, flip, scale, 12, shade);
+    // davanti al corpo
+    if (acc === 'occhiali') {
+      for (const [ex, ey] of an.eyes) { pp(ex - 1, ey, 3, 1, ac); pp(ex - 1, ey, 1, 1, '#8ab0ff'); }
+      if (an.eyes.length > 1) { const [a0, a1] = an.eyes; pp(a0[0] + 2, a0[1], Math.max(0, a1[0] - a0[0] - 3), 1, ac); }
+    } else if (acc === 'baffi') {
+      const [mx, my] = an.mouth; pp(mx - 1, my, 4, 1, ac); pp(mx - 2, my + 1, 1, 1, ac); pp(mx + 3, my + 1, 1, 1, ac);
+    } else if (acc === 'sciarpa') {
+      pp(2, an.neck, 8, 2, ac); pp(2, an.neck, 8, 1, shadeHex(ac, 0.25)); pp(7, an.neck + 2, 2, 3, shadeHex(ac, -0.15));
+    } else if (acc === 'papillon') {
+      pp(3, an.neck, 2, 2, ac); pp(6, an.neck, 2, 2, ac); pp(5, an.neck, 1, 1, shadeHex(ac, -0.35));
+    }
     const hat = HATS[h.hat];
     if (hat && hat.map.length) {
       const hw = Math.max(...hat.map.map(r => r.length));
       const [hx, hy] = body.hat;
       const ox = flip ? 12 - hx - hw : hx;
-      drawMap(c, hat.map, hat.pal, x + ox * scale, y + (hy - hat.map.length + 1) * scale, flip, scale, hw, shade);
+      const hpal = h.hatColor ? { ...hat.pal, c: h.hatColor } : hat.pal;
+      drawMap(c, hat.map, hpal, x + ox * scale, y + (hy - hat.map.length + 1) * scale, flip, scale, hw, shade);
     }
   }
 
@@ -2395,6 +2766,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       if (!sol(at(0, -1))) topCap(g, key, hd, x, y, X, Y, !sol(at(-1, 0)), !sol(at(1, 0)));
       return;
     }
+    if (ch === 'X') { crate(g, X, Y); return; }
     if (ch === '=') plank(g, th.plank, X, Y, x);
     else if (ch === '^') spikes(g, key, th, X, Y, x);
     else if (ch === 'G') gate(g, X, Y);
@@ -2550,6 +2922,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
       g.strokeStyle = '#4a4f66'; g.lineWidth = 0.45;
       g.beginPath(); g.moveTo(cx - 4, Y + 15.2); g.lineTo(cx, Y + 6.5); g.lineTo(cx + 4, Y + 15.2); g.stroke();
     }
+  }
+
+  function crate(g, X, Y) {
+    g.fillStyle = lin(g, 0, Y, 0, Y + T, [[0, '#d39a5a'], [1, '#8a5a2a']]);
+    g.fillRect(X + 0.4, Y + 0.4, T - 0.8, T - 0.8);
+    g.strokeStyle = '#5a3418'; g.lineWidth = 1.1;
+    g.strokeRect(X + 1, Y + 1, T - 2, T - 2);
+    g.beginPath(); g.moveTo(X + 2, Y + 2); g.lineTo(X + T - 2, Y + T - 2); g.moveTo(X + T - 2, Y + 2); g.lineTo(X + 2, Y + T - 2); g.stroke();
+    g.fillStyle = 'rgba(255,230,190,0.35)'; g.fillRect(X + 1.5, Y + 1.5, T - 3, 0.7);
+    g.fillStyle = '#3a2416'; for (const [a, b] of [[2.2, 2.2], [12.8, 2.2], [2.2, 12.8], [12.8, 12.8]]) g.fillRect(X + a, Y + b, 0.9, 0.9);
   }
 
   function gate(g, X, Y) {
@@ -3362,12 +3744,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     const cx = 16 + D.hearts * 10 + 6;
     drawCoin(cx, 26, 0, 2, 0.75);
     label(`${lv.got}/${lv.total}`, cx + 6, 26.5, 8.5, '#ffe680', 'left', 'Fredoka', 700);
-    const lbl = lv.tutorial ? 'Tutorial' : `${lv.world + 1}-${lv.n % 4 + 1} · ${lv.name}`;
+    const lbl = lv.tutorial ? 'Tutorial' : `${lv.world + 1}-${lv.n % LPW + 1} · ${lv.name}`;
     ctx.font = '700 8.5px Fredoka, sans-serif';
     const lw = Math.max(ctx.measureText(lbl).width, 70) + 16;
     panel(VW - 5 - lw, 5, lw, 33);
     label(lbl, VW - 12, 14, 8.5, '#ffffff', 'right', 'Fredoka', 700);
     label(`● ${save.coins} monete`, VW - 12, 28, 8, '#ffe680', 'right', 'Fredoka', 700);
+    if (save.admin) label('ADMIN', VW - 12, 45, 8, '#ff6a6a', 'right', 'Fredoka', 700);
     const b = lv.boss;
     if (b && b.state !== 'sleep' && !b.defeated) {
       const bw = 170, bx = (VW - bw) / 2;
@@ -3449,7 +3832,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     for (const p of lv.plats) drawPlatform(p);
     for (const cd of lv.checks) drawCheck(cd);
     if (lv.door) drawDoor(lv.door);
-    const menuDemo = state === 'title' || state === 'levels' || state === 'hero' || state === 'login';
+    const menuDemo = state === 'title' || state === 'levels' || state === 'hero' || state === 'login' || state === 'story';
     for (const e of lv.enemies) if (e.alive && e.k.beh !== 'popper') shadowAt(e.x + e.w / 2, e.y + e.h, e.w);
     if (lv.boss && !lv.boss.defeated) shadowAt(lv.boss.x + lv.boss.w / 2, lv.boss.y + lv.boss.h, lv.boss.w);
     const showP = !menuDemo && !(state === 'clear' && lv.doorOpen >= 1) && state !== 'dying';
@@ -3525,7 +3908,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     }
     if (lv.introT > 0 && state === 'play' && !iris) {
       ctx.globalAlpha = clamp(lv.introT / 0.5, 0, 1);
-      banner(lv.tutorial ? 'Tutorial' : `Mondo ${lv.world + 1}-${lv.n % 4 + 1}`, lv.name);
+      banner(lv.tutorial ? 'Tutorial' : `Mondo ${lv.world + 1}-${lv.n % LPW + 1}`, lv.name);
       ctx.globalAlpha = 1;
     }
   }
@@ -3550,7 +3933,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
     applyMode();
     loadLevel(0);
     fitCanvas();
-    if (Number.isInteger(d.curLevel) && d.curLevel >= -1 && d.curLevel < 12 && d.inLevel && save.hero) {
+    if (Number.isInteger(d.curLevel) && d.curLevel >= -1 && d.curLevel < TOTAL && d.inLevel && save.hero) {
       curLevel = d.curLevel;
       loadLevel(curLevel);
       state = 'pause';
