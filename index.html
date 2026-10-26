@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <style>
-/* Layout: a pixel-art arcade cabinet. Animated pixel hero up top, the game shelf as cartridge cards, then how to play.
+/* Layout: a pixel-art arcade cabinet. Intro up top, then the game shelf as cartridge cards.
    Single dark night theme on purpose, like the attract screen of an indie game. */
 :root {
   --bg: #110e1f;
@@ -86,19 +86,7 @@ header.top {
 }
 .logo .cur { display: inline-block; width: 0.6em; height: 1em; background: var(--gold); vertical-align: -2px; margin-left: 4px; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-nav.links { display: flex; gap: 18px; flex-wrap: wrap; }
-nav.links a { color: var(--muted); text-decoration: none; font-size: 22px; }
-nav.links a:hover { color: var(--ink); }
-
 .hero { padding-block: 18px 40px; display: grid; gap: 22px; }
-.hero-art {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 240 / 96;
-  max-width: 100%;
-  overflow: hidden;
-}
-.hero-art canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .hero-copy { display: grid; gap: 14px; justify-items: start; }
 .eyebrow { margin: 0; font-family: var(--title); font-size: 11px; color: var(--teal); letter-spacing: 1px; text-transform: uppercase; }
 h1 {
@@ -162,10 +150,6 @@ h2::before { content: ""; width: 12px; height: 12px; background: var(--pink); bo
 .cart.soon .body p { color: var(--muted); }
 .cart.soon { opacity: 0.92; }
 
-.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 26px; }
-.how > div { padding: 18px; display: grid; gap: 8px; align-content: start; }
-.how h3 { margin: 0; font-family: var(--title); font-weight: 400; font-size: 12px; color: var(--teal); }
-.how p { margin: 0; color: var(--muted); }
 kbd { font-family: var(--body); font-size: 20px; color: var(--ink); background: var(--bg2); box-shadow: inset 0 0 0 2px var(--line), 0 3px 0 0 var(--line); padding: 0 7px; }
 
 footer { padding-block: 30px 46px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
@@ -181,14 +165,9 @@ footer p { margin: 0; }
 <div class="wrap">
   <header class="top">
     <a class="logo" href="./" aria-label="Zapzo, pagina principale">ZAPZO<span class="cur" aria-hidden="true"></span></a>
-    <nav class="links" aria-label="Sezioni">
-      <a href="#giochi">Giochi</a>
-      <a href="#come-si-gioca">Come si gioca</a>
-    </nav>
   </header>
 
   <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-art px-box"><canvas id="heroArt" width="240" height="96" aria-label="Un piccolo eroe in pixel art salta tra le monete sotto un cielo stellato"></canvas></div>
     <div class="hero-copy">
       <p class="eyebrow">Sala giochi indipendente</p>
       <h1 id="hero-title">Giochi fatti a mano, <em>da giocare subito.</em></h1>
@@ -234,24 +213,6 @@ footer p { margin: 0; }
     </div>
   </section>
 
-  <section class="block" id="come-si-gioca" aria-labelledby="how-title">
-    <h2 id="how-title">Come si gioca</h2>
-    <div class="how">
-      <div class="px-box">
-        <h3>Con la tastiera</h3>
-        <p><kbd>&larr;</kbd> <kbd>&rarr;</kbd> per muoverti, <kbd>Spazio</kbd> per saltare, <kbd>&darr;</kbd> per abbassarti, <kbd>P</kbd> per la pausa.</p>
-      </div>
-      <div class="px-box">
-        <h3>Su telefono e tablet</h3>
-        <p>Compaiono i pulsanti sullo schermo. In orizzontale si gioca meglio, e c’è anche lo schermo intero.</p>
-      </div>
-      <div class="px-box">
-        <h3>I salvataggi</h3>
-        <p>Personaggio, monete e livelli restano salvati nel browser che usi. Tutti possono giocare, senza account.</p>
-      </div>
-    </div>
-  </section>
-
   <footer>
     <p>Fatto a mano da Ema.</p>
     <p><a href="https://github.com/cr7ema2024-coder/saltamondo">Il codice è su GitHub</a></p>
@@ -279,45 +240,6 @@ footer p { margin: 0; }
   function coin(c, x, y, t) {
     const w = Math.max(1, Math.round(Math.abs(Math.cos(t * 4 + x)) * 3));
     R(c, x - w, y - 3, w * 2, 6, '#ffc640'); R(c, x - w, y - 2, Math.max(1, w), 4, '#fff1a0');
-  }
-
-  // ---------- scena grande: notte stellata, l'eroe corre e salta tra le monete ----------
-  const hc = document.getElementById('heroArt'), h = hc.getContext('2d');
-  const W = 240, H = 96;
-  const bands = ['#120c2e', '#181040', '#1f1550', '#281b5e', '#33226a'];
-  function heroScene(t) {
-    bands.forEach((col, i) => R(h, 0, i * 12, W, 13, col));
-    for (let i = 0; i < 46; i++) {
-      const x = hash(i, 1) % W, y = hash(i, 2) % 52;
-      if (Math.sin(t * 2 + i) > -0.4) R(h, x, y, 1, 1, i % 7 ? '#cfc4ff' : '#ffffff');
-    }
-    // luna
-    R(h, 196, 10, 12, 12, '#fff1c1'); R(h, 194, 12, 16, 8, '#fff1c1'); R(h, 198, 8, 8, 16, '#fff1c1');
-    R(h, 199, 13, 3, 3, '#e8d39a'); R(h, 204, 18, 2, 2, '#e8d39a');
-    // colline a gradini
-    const off1 = (t * 6) % 64, off2 = (t * 14) % 48;
-    for (let x = -64; x < W + 64; x += 4) {
-      const y1 = 60 + Math.round(Math.sin((x + off1) * 0.05) * 6);
-      R(h, x - off1 + 64 - 64, y1, 4, H, '#2b1f5c');
-    }
-    for (let x = -48; x < W + 48; x += 4) {
-      const y2 = 70 + Math.round(Math.sin((x + off2) * 0.08) * 4);
-      R(h, x, y2, 4, H, '#3a2a75');
-    }
-    // terreno
-    const gOff = Math.floor(t * 30) % 8;
-    R(h, 0, 82, W, 14, '#5a3a2a'); R(h, 0, 82, W, 3, '#5cc04a'); R(h, 0, 82, W, 1, '#9be86c');
-    for (let x = -gOff; x < W; x += 8) R(h, x, 88, 2, 2, '#6e4a36');
-    // monete che arrivano
-    for (let i = 0; i < 5; i++) {
-      const cx = ((i * 52 - t * 30) % 260 + 260) % 260 - 10, cy = 58 + (i % 2) * 8 + Math.sin(t * 3 + i) * 2;
-      coin(h, cx, cy, t);
-    }
-    // eroe: corre e salta a ritmo
-    const ph = (t * 1.1) % 1, jump = ph < 0.42 ? Math.sin(ph / 0.42 * Math.PI) * 22 : 0;
-    const frame = jump > 0 ? 1 : Math.floor(t * 10) % 2;
-    R(h, 56, 81, 9, 1, 'rgba(0,0,0,0.35)');
-    sprite(h, HERO[frame], HPAL, 56, 72 - jump);
   }
 
   // ---------- miniature dei giochi ----------
@@ -365,7 +287,6 @@ footer p { margin: 0; }
 
   function frame(ms) {
     const t = ms / 1000;
-    heroScene(t);
     for (const th of thumbs) DRAW[th.game](th.c, t);
     if (!reduce) requestAnimationFrame(frame);
   }
