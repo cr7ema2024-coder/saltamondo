@@ -780,14 +780,47 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     return { grid, w, world: 0, isBoss: false, arena: null, tips };
   }
 
+  // ---------- nomi: niente parolacce, e ogni nome è di un giocatore solo ----------
+  // Le parole sono confrontate sullo "scheletro" del nome: minuscole, senza accenti né simboli,
+  // 4→a, 3→e, k→c..., lettere doppie ridotte a una. Così "C4ZZ0" e "kazzzo" diventano "cazo".
+  const NOMI_VIETATI = {
+    // vietate ovunque nel nome
+    ovunque: ['cazzo', 'cazzi', 'cazza', 'minchia', 'minchie', 'merda', 'merde', 'stronzo', 'stronza', 'stronzi', 'puttana', 'puttane',
+      'troia', 'troie', 'vaffanculo', 'fanculo', 'coglione', 'coglioni', 'bastardo', 'bastarda', 'porcodio', 'porcoddio', 'dioporco',
+      'diocane', 'dioboia', 'porcamadonna', 'madonnaputtana', 'bocchino', 'pompino', 'ricchione', 'frocio', 'froci', 'mignotta',
+      'zoccola', 'sborra', 'segaiolo', 'culattone', 'inculo', 'inculata', 'rottinculo', 'culo', 'scopata', 'scopami', 'pirla',
+      'figlio di puttana', 'testa di cazzo', 'leccaculo', 'puttaniere', 'cornuto', 'stupro', 'stuprat', 'pedofilo', 'suicidio',
+      'hitler', 'nazista', 'mussolini', 'fuck', 'fucker', 'shit', 'bitch', 'cunt', 'pussy', 'whore', 'slut', 'asshole', 'motherf',
+      'penis', 'vagina', 'porno', 'porn', 'sexy', 'fvck', 'dickhead', 'cocksucker', 'nigger', 'nigga', 'faggot', 'dildo', 'wank', 'bastard'],
+    // vietate all'inizio del nome (in mezzo sono spesso nomi normali: Magnifica, Benedict...)
+    inizio: ['fica', 'fich', 'figa', 'tette', 'tetta', 'negro', 'negra', 'tits', 'puta', 'sex'],
+    // vietate solo come nome intero
+    intero: ['pene', 'sega', 'dick', 'cock', 'ano', 'anal', 'cum', 'nazi', 'kkk', 'wc', 'cesso', 'rutto', 'scoreggia']
+  };
+  function nomeChiave(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+  function nomeScheletro(s) {
+    const leet = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i', '€': 'e', '+': 't', k: 'c', y: 'i', j: 'i', q: 'c' };
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .replace(/[0-9@$!|€+kyjq]/g, c => leet[c] || '').replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1');
+  }
+  const NOMI_SCHELETRI = Object.fromEntries(Object.entries(NOMI_VIETATI).map(([k, a]) => [k, [...new Set(a.map(nomeScheletro))]]));
+  function nomeBrutto(s) {
+    const sk = nomeScheletro(s);
+    return NOMI_SCHELETRI.ovunque.some(w => sk.includes(w)) || NOMI_SCHELETRI.inizio.some(w => sk.startsWith(w)) || NOMI_SCHELETRI.intero.includes(sk);
+  }
+
   // ================= salvataggio =================
   const SAVE_KEY = 'saltamondo-save-v1';
   function emptyStars() { return { facile: [], normale: [], difficile: [] }; }
+  const newPid = () => Array.from(crypto.getRandomValues(new Uint8Array(20)), b => (b % 36).toString(36)).join('');
   function normalize(s) {
     const d = { hero: null, coins: 0, mode: 'classic', diff: 'normale', unlocked: { classic: 1, halloween: 1 },
       stars: { classic: emptyStars(), halloween: emptyStars() }, sfx: true, music: true, tutorialDone: false,
       seen: [], cloudChoice: null, updatedAt: 0, v6: true,
-      abilities: { dash: false, wall: false, pound: false }, story: {}, pendingMsgs: [], admin: false, adminBackup: null };
+      abilities: { dash: false, wall: false, pound: false }, story: {}, pendingMsgs: [], admin: false, adminBackup: null,
+      pid: newPid(), nameOk: false, nameRedo: false };
     if (!s || typeof s !== 'object') return d;
     const n = { ...d, ...s, unlocked: { ...d.unlocked, ...(s.unlocked || {}) },
       stars: { classic: { ...emptyStars(), ...((s.stars || {}).classic || {}) }, halloween: { ...emptyStars(), ...((s.stars || {}).halloween || {}) } },
@@ -798,6 +831,8 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     n.abilities = { ...d.abilities, ...(s.abilities || {}) };
     n.story = { ...(s.story || {}) };
     n.pendingMsgs = Array.isArray(s.pendingMsgs) ? s.pendingMsgs.slice() : [];
+    // id casuale del giocatore: sul sito dice al registro dei nomi di chi è un nome
+    if (!/^[a-z0-9]{16,40}$/.test(n.pid)) n.pid = newPid();
     if (!s.v6) {
       // i salvataggi vecchi avevano 4 livelli per mondo
       const conv = i => Math.floor(i / 4) * LPW + (i % 4 === 3 ? LPW - 1 : i % 4);
@@ -884,7 +919,45 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     if (save.cloudChoice === 'cloud') await loginCloud();
     if (state === 'login') renderLogin();
     if (state === 'title') renderTitle();
+    checkName();
   })();
+
+  // ---------- registro dei nomi ----------
+  // Sul sito il registro è /api/nome; su claude.ai è la raccolta condivisa names/<nome>.
+  // Risponde 'ok', 'preso', 'brutto' oppure 'offline' (registro non raggiungibile: si riprova più tardi).
+  async function claimName(name, old) {
+    if (!nomeChiave(name) || nomeBrutto(name)) return 'brutto';
+    try {
+      if (window.claude) {
+        if (cloud.status !== 'available') return 'offline';
+        const key = nomeChiave(name), ref = cloud.db.doc(`names/${key}`);
+        const lease = await ref.acquire({ holder: cloud.uid, ttlMs: 5000 });
+        if (!lease.acquired) return 'preso';
+        const snap = await ref.get();
+        const owner = snap.exists ? snap.data().owner : null;
+        if (owner && owner !== cloud.uid) return 'preso';
+        if (!owner) await ref.set({ owner: cloud.uid });
+        const ok = nomeChiave(old);
+        if (ok && ok !== key) {
+          const oref = cloud.db.doc(`names/${ok}`), os = await oref.get();
+          if (os.exists && os.data().owner === cloud.uid) await oref.delete();
+        }
+        return 'ok';
+      }
+      if (!/^https?:$/.test(location.protocol)) return 'offline';
+      const r = await fetch('/api/nome', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, old: old || '', pid: save.pid }) });
+      if (r.status === 409) return 'preso';
+      if (r.status === 400) { const j = await r.json().catch(() => ({})); return j.esito === 'brutto' ? 'brutto' : 'offline'; }
+      return r.ok ? 'ok' : 'offline';
+    } catch (e) { return 'offline'; }
+  }
+  // Nomi scelti prima del registro, o quando il registro non rispondeva: li registra ora.
+  async function checkName() {
+    if (!save.hero || save.nameOk || save.nameRedo) return;
+    const r = await claimName(save.hero.name);
+    if (r === 'ok') { save.nameOk = true; persist(); }
+    else if (r === 'preso' || r === 'brutto') { save.nameRedo = r; persist(); if (state === 'title') openHero(); }
+  }
   const starCount = m => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1);
   const HERO_DEFAULT = { name: 'Saltino', body: 'bimbo', color: '#3aa8e8', color2: null, hat: 'cappellino', hatColor: null, acc: 'nessuno', accColor: null };
   const heroOr = () => ({ ...HERO_DEFAULT, ...(save.hero || {}) });
@@ -2255,7 +2328,10 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
   }
   function hideMenu() { menu.hidden = true; syncBar(); cv.focus({ preventScroll: true }); }
 
-  function showTitle() { state = 'title'; loadLevel(0); showScreen('scrTitle'); }
+  function showTitle() {
+    if (save.hero && save.nameRedo) return openHero();
+    state = 'title'; loadLevel(0); showScreen('scrTitle');
+  }
   function showLevels() {
     if (!save.hero) return openHero();
     if (state !== 'title' && state !== 'hero' && state !== 'levels') loadLevel(Math.max(0, Math.min(curLevel, TOTAL - 1)));
@@ -2529,8 +2605,10 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
   buildChoice($('accSeg'), Object.entries(ACCS).map(([id, a]) => ({ id, label: a.label })), 'acc');
   buildColors($('accColorSeg'), 'accColor', true);
 
+  let nameBusy = false, nameErr = null;
   function openHero() {
     editing = !!save.hero;
+    nameErr = null;
     draft = { ...heroOr(), color: heroColor(heroOr().color) };
     if (!save.hero) draft.name = '';
     $('heroName').value = draft.name;
@@ -2556,8 +2634,16 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     draft.name = name;
     const changed = save.hero && HERO_KEYS.some(k => (heroOr()[k] ?? null) !== (draft[k] ?? null));
     const note = $('heroNote'), saveBtn = $('btnHeroSave');
-    $('btnHeroCancel').hidden = !save.hero;
-    if (!save.hero) {
+    const bad = name.length > 0 && (!nomeChiave(name) || nomeBrutto(name));
+    $('btnHeroCancel').hidden = !save.hero || !!save.nameRedo;
+    if (save.hero && save.nameRedo) {
+      $('heroTitle').textContent = 'Scegli un nuovo nome';
+      note.textContent = save.nameRedo === 'brutto'
+        ? `Il nome «${heroOr().name}» non si può usare. Scegline un altro: è gratis.`
+        : `Il nome «${heroOr().name}» è già di un altro giocatore. Scegline un altro: è gratis.`;
+      saveBtn.textContent = 'Salva';
+      saveBtn.disabled = name.length === 0 || nomeChiave(name) === nomeChiave(heroOr().name);
+    } else if (!save.hero) {
       $('heroTitle').textContent = 'Crea il tuo personaggio';
       note.textContent = 'Il primo personaggio è gratis! Dopo, per cambiarlo servono 500 monete.';
       saveBtn.textContent = 'Inizia!';
@@ -2569,6 +2655,9 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
       else if (save.coins < COST) { note.textContent = `Ti servono ${COST} monete per salvare le modifiche. Ne hai ${save.coins}: ne mancano ${COST - save.coins}.`; saveBtn.disabled = true; }
       else { note.textContent = `Hai ${save.coins} monete. Salvando ne spendi ${COST} e te ne restano ${save.coins - COST}.`; saveBtn.disabled = name.length === 0; }
     }
+    if (bad) { note.textContent = 'Questo nome non si può usare: scegline un altro.'; saveBtn.disabled = true; }
+    else if (nameErr && nameErr.key === nomeChiave(name)) { note.textContent = nameErr.msg; saveBtn.disabled = true; }
+    if (nameBusy) { note.textContent = 'Controllo che il nome sia libero…'; saveBtn.disabled = true; }
     drawHeroPreview();
   }
   $('heroName').addEventListener('input', syncHero);
@@ -2583,13 +2672,28 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     });
     syncHero();
   });
-  $('btnHeroSave').addEventListener('click', () => {
+  $('btnHeroSave').addEventListener('click', async () => {
     const name = $('heroName').value.trim().slice(0, 12);
-    if (!name) return;
-    if (save.hero) {
+    if (!name || nameBusy) return;
+    const free = !!(save.hero && save.nameRedo), old = save.hero && !free ? save.hero.name : '';
+    if (save.hero && !free && save.coins < COST) return;
+    let nameOk = save.nameOk;
+    if (!save.hero || free || nomeChiave(name) !== nomeChiave(old)) {
+      nameBusy = true; syncHero();
+      const r = await claimName(name, old);
+      nameBusy = false;
+      if (r === 'preso' || r === 'brutto') {
+        nameErr = { key: nomeChiave(name), msg: r === 'preso' ? `«${name}» è già usato da un altro giocatore: scegline un altro.` : 'Questo nome non si può usare: scegline un altro.' };
+        syncHero();
+        return;
+      }
+      nameOk = r === 'ok';
+    }
+    if (save.hero && !free) {
       if (save.coins < COST) return;
       save.coins -= COST;
     }
+    save.nameOk = nameOk; save.nameRedo = false;
     save.hero = { name, body: draft.body, color: draft.color, color2: draft.color2 || null, hat: draft.hat, hatColor: draft.hatColor || null, acc: draft.acc, accColor: draft.accColor || null };
     persist();
     if (!editing) { state = 'levels'; showScreen('scrLevels'); }
@@ -2632,7 +2736,7 @@ input[type="color"].picker { width: 34px; height: 30px; padding: 0 2px; border-r
     const b = $('btnLoginCloud');
     b.disabled = true; b.textContent = 'Accesso in corso…';
     const ok = cloud.on || await loginCloud();
-    if (ok) { showTitle(); return; }
+    if (ok) { checkName(); showTitle(); return; }
     renderLogin();
     $('loginNote').textContent = 'Non riesco a raggiungere il salvataggio online. Riprova tra poco, oppure gioca senza account.';
   });
