@@ -1,18 +1,9 @@
-# Saltamondo
+# Ema Arcade
 
-Un platform 2D per tutta la famiglia, tutto in un solo file (`index.html`).
+La raccolta dei miei giochi: gratis, da giocare subito su computer, telefono e tablet.
 
-- Crea il tuo personaggio e dagli un nome
-- 24 livelli in 6 mondi, con la modalità Halloween
-- Tutorial con il Gufo Saggio
-- Doppio salto, scivolata, molle, boss
+- `index.html`: la sala giochi
+- `saltamondo/`: Saltamondo, platform con storia, 36 livelli e modalità Halloween
+- `notte-di-lucciole/`: Notte di Lucciole, il primo gioco
 
-## Giocare in locale
-
-Apri `index.html` nel browser.
-
-## Pubblicazione
-
-Il sito è pubblicato su Netlify. Il file `netlify.toml` dice a Netlify di pubblicare la cartella così com'è (non serve nessuna build).
-
-Sul sito i progressi restano salvati nel browser di chi gioca.
+Il sito è pubblicato su Netlify: ogni modifica caricata su `main` va online da sola.
